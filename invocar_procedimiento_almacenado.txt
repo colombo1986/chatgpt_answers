@@ -1,0 +1,112 @@
+Para invocar un procedimiento almacenado de Oracle desde una aplicación Spring Boot normalmente se utilizan las capacidades de Spring JDBC o Spring Data. Una de las formas más sencillas es usar JdbcTemplate o SimpleJdbcCall.
+
+A continuación se detalla un ejemplo utilizando SimpleJdbcCall:
+
+1. Configurar la DataSource y JdbcTemplate
+Asegúrate de haber configurado tu conexión a la base de datos en el archivo application.properties o application.yml. Por ejemplo, en application.properties:
+
+properties
+Copiar código
+spring.datasource.url=jdbc:oracle:thin:@host:port:SID
+spring.datasource.username=usuario
+spring.datasource.password=password
+spring.datasource.driver-class-name=oracle.jdbc.driver.OracleDriver
+Spring Boot creará automáticamente un DataSource y un JdbcTemplate a partir de estas propiedades (si no has deshabilitado la autoconfiguración).
+
+2. Usar SimpleJdbcCall en un componente de acceso a datos (DAO/Repository)
+
+java
+Copiar código
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcCall;
+import org.springframework.stereotype.Repository;
+
+import javax.annotation.PostConstruct;
+import java.sql.Types;
+import java.util.Map;
+
+@Repository
+public class MiProcedimientoRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+    private SimpleJdbcCall simpleJdbcCall;
+
+    public MiProcedimientoRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @PostConstruct
+    void init() {
+        // Configura el SimpleJdbcCall con el nombre del procedimiento
+        // Se asume que el procedimiento se llama "MI_PROCEDIMIENTO"
+        this.simpleJdbcCall = new SimpleJdbcCall(jdbcTemplate)
+                .withProcedureName("MI_PROCEDIMIENTO");
+                // .withCatalogName("schema")  // si tu procedimiento está en un esquema distinto al usuario por defecto, especifícalo aquí
+    }
+
+    public void invocarProcedimiento(Number pId, String pNombre, java.util.Date pFecha) {
+        // Prepara parámetros de entrada
+        Map<String, Object> inParams = Map.of(
+            "P_ID", pId,
+            "P_NOMBRE", pNombre,
+            "P_FECHA", new java.sql.Date(pFecha.getTime()) // Convertir a java.sql.Date
+        );
+
+        // Ejecuta el procedimiento
+        Map<String, Object> out = simpleJdbcCall.execute(inParams);
+
+        // Si el procedimiento no tiene parámetros OUT, no necesitas leer 'out'
+        // Si sí los tiene, puedes leerlos de out.get("NOMBRE_PARAM_OUT")
+    }
+}
+3. Llamada al procedimiento desde un Service o Controller
+
+java
+Copiar código
+import org.springframework.stereotype.Service;
+import java.util.Date;
+
+@Service
+public class MiServicio {
+
+    private final MiProcedimientoRepository repo;
+
+    public MiServicio(MiProcedimientoRepository repo) {
+        this.repo = repo;
+    }
+
+    public void ejecutarProcedimiento() {
+        Date hoy = new Date();
+        repo.invocarProcedimiento(100, "Carlos", hoy);
+    }
+}
+4. Ajustes Adicionales
+
+Si tu procedimiento tiene parámetros de salida, puedes configurarlos en SimpleJdbcCall agregando algo como:
+
+java
+Copiar código
+.declareParameters(
+    new SqlParameter("P_ID", Types.NUMERIC),
+    new SqlParameter("P_NOMBRE", Types.VARCHAR),
+    new SqlParameter("P_FECHA", Types.DATE),
+    new SqlOutParameter("P_RESULTADO", Types.VARCHAR)
+)
+Luego de la ejecución:
+
+java
+Copiar código
+String resultado = (String) out.get("P_RESULTADO");
+Asegúrate de que los nombres de parámetros en SimpleJdbcCall coincidan exactamente con los del procedimiento almacenado.
+
+Si el procedimiento está en un paquete, por ejemplo PKG_MI_PROCEDIMIENTO.MI_PROCEDIMIENTO, puedes especificarlo con:
+
+java
+Copiar código
+.withCatalogName("PKG_MI_PROCEDIMIENTO")
+.withProcedureName("MI_PROCEDIMIENTO")
+En síntesis, el proceso consiste en:
+
+Configurar la conexión con Oracle en application.properties.
+Usar JdbcTemplate y SimpleJdbcCall para definir el procedimiento.
+Invocar el procedimiento mediante simpleJdbcCall.execute(...) enviando un Map de parámetros.
