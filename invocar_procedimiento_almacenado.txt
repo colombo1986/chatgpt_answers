@@ -13,6 +13,13 @@ spring.datasource.password=password
 spring.datasource.driver-class-name=oracle.jdbc.driver.OracleDriver
 Spring Boot creará automáticamente un DataSource y un JdbcTemplate a partir de estas propiedades (si no has deshabilitado la autoconfiguración).
 
+spring:
+  datasource:
+    url: "jdbc:oracle:thin:@host:port:SID"
+    username: "usuario"
+    password: "password"
+    driver-class-name: "oracle.jdbc.driver.OracleDriver"
+
 2. Usar SimpleJdbcCall en un componente de acceso a datos (DAO/Repository)
 
 java
